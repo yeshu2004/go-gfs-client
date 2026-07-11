@@ -10,6 +10,8 @@ const chunkAllocationResponse = {
 
 function App() {
   const [file, setFile] = useState(null);
+  const [fileID, setFileID] = useState("");
+
   const [error, setError] = useState(null);
   const [chunkMetaDataResp, setChunkMetaDataResp] = useState([]);
   const [fileSize, setFileSize] = useState(0);
@@ -44,6 +46,10 @@ function App() {
 
     for (let i = 0; i < totalChunks; i++) {
       const chunkMeta = await askForChunks(file);
+      if (!chunkMeta) {
+        console.error(`chunk allocation failed at index ${i}, aborting upload`);
+        return;
+      }
 
       let start = i * maxChunkSize;
       let end = Math.min(start + maxChunkSize, fileSize);
@@ -103,7 +109,7 @@ function App() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        file_name: file.name,
+        file_id: fileID,
       }),
     });
 
@@ -118,18 +124,26 @@ function App() {
     return resp;
   }
 
-  async function askForMaxChunkSize() {
+  async function askForMaxChunkSize(file) {
     const response = await fetch("http://localhost:8000/max-chunk-size", {
-      method: "GET",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        file_name: file.name,
+        size: file.size,
+      }),
     });
     if (!response.ok) {
-      setError(
-        "Error in fetching the max chunk size from server: Server Error",
-      );
-      return;
+      const text = await response.text().catch(() => "");
+      setError(`error from the server: ${text || response.status}`);
+      return null;
     }
 
     const resp = await response.json();
+    console.log(resp);
+    setFileID(() => resp.file_id);
     return resp.max_chunk_size;
   }
 
@@ -149,7 +163,8 @@ function App() {
             const file = e.target.files[0];
             console.log(file);
             if (file) {
-              const chunkSize = await askForMaxChunkSize();
+              const chunkSize = await askForMaxChunkSize(file);
+              if (!chunkSize) return;
               setFile(() => file);
               setFileSize(() => file.size);
               setMaxChunkSize(chunkSize);
