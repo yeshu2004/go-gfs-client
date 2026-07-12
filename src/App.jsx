@@ -124,6 +124,8 @@ function App() {
     return resp;
   }
 
+  // registers meta data for the file info....& also ask for the chunk size which 
+  // could also be hard coded.
   async function askForMaxChunkSize(file) {
     const response = await fetch("http://localhost:8000/max-chunk-size", {
       method: "POST",
@@ -133,6 +135,7 @@ function App() {
       body: JSON.stringify({
         file_name: file.name,
         size: file.size,
+        file_type: file.type,
       }),
     });
     if (!response.ok) {
